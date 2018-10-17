@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Newtonsoft.Json.Linq;
 
 namespace Dicom.Serialization
 {
@@ -481,12 +482,13 @@ namespace Dicom.Serialization
         private DicomItem ReadJsonDicomItem(DicomTag tag, JsonReader reader, JsonSerializer serializer)
         {
             if (reader.TokenType != JsonToken.StartObject) throw new JsonReaderException("Malformed DICOM json");
+
+            var jObject = JObject.Load(reader);
+            var vr = (string)jObject["vr"];
+            if (string.IsNullOrEmpty(vr)) throw new JsonReaderException("Malformed DICOM json");
+
+            reader = jObject.CreateReader();
             reader.Read();
-            if (reader.TokenType != JsonToken.PropertyName) throw new JsonReaderException("Malformed DICOM json");
-            if ((string)reader.Value != "vr") throw new JsonReaderException("Malformed DICOM json");
-            reader.Read();
-            if (reader.TokenType != JsonToken.String) throw new JsonReaderException("Malformed DICOM json");
-            string vr = (string)reader.Value;
 
             object data;
 
@@ -533,7 +535,7 @@ namespace Dicom.Serialization
                     break;
             }
 
-            if (reader.TokenType != JsonToken.EndObject) throw new JsonReaderException("Malformed DICOM json");
+            if (reader.TokenType != JsonToken.EndObject && (string)reader.Value != "vr") throw new JsonReaderException("Malformed DICOM json");
 
             DicomItem item = CreateDicomItem(tag, vr, data);
 
